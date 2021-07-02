@@ -1,4 +1,6 @@
+import { NgIf } from "@angular/common";
 import { Component, OnInit } from "@angular/core";
+import { F_OK } from "constants";
 import Phaser, { Game, Time } from "phaser";
 import { count } from "rxjs/operators";
 import { ApiService } from "../api.service";
@@ -9,11 +11,6 @@ class GameScene extends Phaser.Scene {
   thunder: any;
   image: any;
   timer = 0;
-  data_knife: any = {
-    balance: 0,
-    play: 0,
-    time: 0,
-  };
   user: any;
   api: any;
   score: any;
@@ -51,6 +48,7 @@ class GameScene extends Phaser.Scene {
   legalHit: boolean;
   timeText: Phaser.GameObjects.BitmapText;
   timerEvent: any;
+  giftGroup: Phaser.GameObjects.Group;
   constructor(config) {
     super(config);
   }
@@ -79,7 +77,7 @@ class GameScene extends Phaser.Scene {
   }
   start() {
     // can the player throw a knife? Yes, at the beginning of the game
-    
+
     this.canThrow = true;
     this.knife1 = this.add.sprite(
       this.comp.api.screen_size.w / 2,
@@ -92,15 +90,12 @@ class GameScene extends Phaser.Scene {
       this.input.on("pointerdown", this.throwKnife, this);
     }
   }
-  next(){
+  next() {
     this.timer = 0;
     this.value = 100;
-    this.timeText.visible = false;
+    this.timeText.destroy();
   }
-  create() {
-    // at the beginning of the game, both current rotation speed and new rotation speed are set to default rotation speed
-    this.currentRotationSpeed = this.gameOptions.rotationSpeed;
-    this.newRotationSpeed = this.gameOptions.rotationSpeed;
+  createTimetext(){
     this.timeText = this.add.bitmapText(
       10,
       10,
@@ -109,6 +104,16 @@ class GameScene extends Phaser.Scene {
       50
     );
     this.timeText.visible = false;
+  }
+  create() {
+    // at the beginning of the game, both current rotation speed and new rotation speed are set to default rotation speed
+    this.currentRotationSpeed = this.gameOptions.rotationSpeed;
+    this.newRotationSpeed = this.gameOptions.rotationSpeed;
+    this.createTimetext();
+    if(this.timeText == null ){
+       this.createTimetext();
+    }
+   
 
     // group to store all rotating knives
     this.knifeGroup = this.add.group();
@@ -159,19 +164,10 @@ class GameScene extends Phaser.Scene {
       apple.impactAngle = angle;
       this.thingsGroup.add(apple);
     }
-    this.gift = this.add.sprite(
-      this.target.x + (this.target.displayWidth / 1.4) * Math.cos(radians),
-      this.target.y + (this.target.displayWidth / 1.4) * Math.sin(radians),
-      "gift"
-    );
-    this.gift.displayWidth = this.target.displayWidth / 6;
-    this.gift.scaleY = this.gift.scaleX;
-    var angle = 90;
-    this.gift.angle = angle;
-    this.gift.impactAngle = angle;
+      this.createG();
+   
 
     // waiting for player input to throw a knife
-
     // this is how we create a looped timer event
     let timedEvent = this.time.addEvent({
       delay: Phaser.Math.Between(3000, 6000),
@@ -191,6 +187,22 @@ class GameScene extends Phaser.Scene {
     });
 
     this.start();
+  }
+  createG() {
+    var radians = Phaser.Math.DegToRad(90);
+    this.gift = this.add.sprite(
+      this.target.x + (this.target.displayWidth / 1.4) * Math.cos(radians),
+      this.target.y + (this.target.displayWidth / 1.4) * Math.sin(radians),
+      "gift"
+    );
+    this.gift.displayWidth = this.target.displayWidth / 6;
+    this.gift.scaleY = this.gift.scaleX;
+    var angle = 90;
+    this.gift.angle = angle;
+    this.gift.impactAngle = angle;
+     this.giftGroup  =  this.add.group();
+    this.giftGroup.add(this.gift);
+
   }
   changeSpeed() {
     // ternary operator to choose from +1 and -1
@@ -215,10 +227,9 @@ class GameScene extends Phaser.Scene {
     this.timeText.visible = true;
     this.timer++;
     this.timeText.text = (this.gameOptions.timeLimit - this.timer).toString();
-    this.value = 200;
     if (this.timer >= this.gameOptions.timeLimit) {
-      this.timerEvent.remove();
       this.next();
+      this.timerEvent.remove();
     }
   }
   addTimer() {
@@ -292,19 +303,19 @@ class GameScene extends Phaser.Scene {
           );
           if (g < this.gameOptions.minAngle) {
             ok = true;
+            this.gift.destroy();
             this.addTimer();
-            this.gift.visible = false;
-            setTimeout(() => {
-              this.gift.visible = true;
-            }, 200000);
+            console.log(this.gift);
             console.log("trung hộp quà");
             var explosion = this.add
               .sprite(this.knife1.x, this.knife1.y / 0.8, "kaboom")
               .play("boom");
             explosion.depth = 2;
             explosion.once("animationcomplete", () => {
-              explosion.destroy();
+            explosion.destroy();
             });
+            var sign1 = Phaser.Math.Between(2, 10);
+            this.value = 100 * sign1;
             // var value = this.value;
             // this.comp.api.user.balance += value * 10;
             // this.comp.api.animate(1000);
@@ -365,7 +376,7 @@ class GameScene extends Phaser.Scene {
               callbackScope: this,
               // function to be executed once the tween has been completed
               onComplete: function () {
-                // restart the game
+                // restart the games
                 this.start();
               },
             });
@@ -389,7 +400,14 @@ class GameScene extends Phaser.Scene {
         });
     }
   }
-
+  createGift() {
+    this.gift.angle += this.currentRotationSpeed;
+    var radians1 = Phaser.Math.DegToRad(this.gift.angle + 90);
+    this.gift.x =
+      this.target.x + (this.target.displayWidth / 1.6) * Math.cos(radians1);
+    this.gift.y =
+      this.target.y + (this.target.displayWidth / 1.6) * Math.sin(radians1);
+  }
   update(time, delta) {
     // rotating the target
 
@@ -421,12 +439,7 @@ class GameScene extends Phaser.Scene {
       children[i].y =
         this.target.y + (this.target.displayWidth / 2.2) * Math.sin(radians);
     }
-    this.gift.angle += this.currentRotationSpeed;
-    var radians1 = Phaser.Math.DegToRad(this.gift.angle + 90);
-    this.gift.x =
-      this.target.x + (this.target.displayWidth / 1.6) * Math.cos(radians1);
-    this.gift.y =
-      this.target.y + (this.target.displayWidth / 1.6) * Math.sin(radians1);
+    this.createGift();
 
     // adjusting curr`e`nt rotation speed using linear interpolation
     this.currentRotationSpeed = Phaser.Math.Linear(
