@@ -1,6 +1,5 @@
 import { NgIf } from "@angular/common";
 import { Component, OnInit } from "@angular/core";
-import { F_OK } from "constants";
 import Phaser, { Game, Time } from "phaser";
 import { count } from "rxjs/operators";
 import { ApiService } from "../api.service";
@@ -34,7 +33,7 @@ class GameScene extends Phaser.Scene {
     changeTime: 2000,
     // maximum rotation speed, in degrees per frame
     maxRotationSpeed: 8,
-    timeLimit: 30,
+    timeLimit: 31,
   };
 
   comp: any;
@@ -48,7 +47,11 @@ class GameScene extends Phaser.Scene {
   legalHit: boolean;
   timeText: Phaser.GameObjects.BitmapText;
   timerEvent: any;
+  showTimer = false;
   giftGroup: Phaser.GameObjects.Group;
+  text: Phaser.GameObjects.Text;
+  sign1 = Phaser.Math.Between(2, 10);
+  gems: Phaser.GameObjects.Sprite;
   constructor(config) {
     super(config);
   }
@@ -71,6 +74,11 @@ class GameScene extends Phaser.Scene {
       frameWidth: 100,
       frameHeight: 100,
     });
+    this.load.atlas(
+      "gems",
+      "assets/images/frame/gems.png",
+      "assets/images/frame/gems.json"
+    );
 
     this.comp = this.registry.get("comp");
     this.api = this.registry.get("api");
@@ -93,9 +101,11 @@ class GameScene extends Phaser.Scene {
   next() {
     this.timer = 0;
     this.value = 100;
-    this.timeText.destroy();
+    this.text.visible = false;
+    this.gems.setVisible(false);
+    this.timeText.visible = false;
   }
-  createTimetext(){
+  createTimetext() {
     this.timeText = this.add.bitmapText(
       10,
       10,
@@ -110,10 +120,21 @@ class GameScene extends Phaser.Scene {
     this.currentRotationSpeed = this.gameOptions.rotationSpeed;
     this.newRotationSpeed = this.gameOptions.rotationSpeed;
     this.createTimetext();
-    if(this.timeText == null ){
-       this.createTimetext();
+    if (this.timeText == null) {
+      this.createTimetext();
     }
-   
+    this.text = this.add.text(
+      this.comp.api.screen_size.w / 10,
+      this.comp.api.screen_size.h / 10,
+      "x" + this.sign1,
+      {
+        font: "65px Arial",
+        fill: "#ff0044",
+        align: "center",
+      }
+    );
+    this.text.setScale(0.3);
+    this.text.visible = true;
 
     // group to store all rotating knives
     this.knifeGroup = this.add.group();
@@ -163,10 +184,29 @@ class GameScene extends Phaser.Scene {
       apple.angle = angle;
       apple.impactAngle = angle;
       this.thingsGroup.add(apple);
-    }
-      this.createG();
-   
 
+      this.anims.create({
+        key: "diamond",
+        frames: this.anims.generateFrameNames("gems", {
+          prefix: "diamond_",
+          end: 60,
+          zeroPad: 4,
+        }),
+        frameRate: 16,
+        repeat: -1,
+      });
+      this.gems = this.add
+        .sprite(
+          this.comp.api.screen_size.w / 15,
+          this.comp.api.screen_size.h / 8.3,
+          "gems"
+        )
+        .play("diamond")
+        .setScale(0.3)
+        .setVisible(false);
+    }
+    this.text.visible = false;
+    this.createG();
     // waiting for player input to throw a knife
     // this is how we create a looped timer event
     let timedEvent = this.time.addEvent({
@@ -200,9 +240,6 @@ class GameScene extends Phaser.Scene {
     var angle = 90;
     this.gift.angle = angle;
     this.gift.impactAngle = angle;
-     this.giftGroup  =  this.add.group();
-    this.giftGroup.add(this.gift);
-
   }
   changeSpeed() {
     // ternary operator to choose from +1 and -1
@@ -225,22 +262,28 @@ class GameScene extends Phaser.Scene {
   }
   tick() {
     this.timeText.visible = true;
+    this.text.visible = true;
+    this.gems.setVisible(true);
+    console.log(this.timeText);
     this.timer++;
     this.timeText.text = (this.gameOptions.timeLimit - this.timer).toString();
     if (this.timer >= this.gameOptions.timeLimit) {
       this.next();
       this.timerEvent.remove();
     }
+    if (!this.gift.visible) {
+      setTimeout(() => {
+        this.gift.visible = true;
+      }, 60000);
+    }
   }
   addTimer() {
-    if (this.timerEvent == null) {
-      this.timerEvent = this.time.addEvent({
-        delay: 1000,
-        callback: this.tick,
-        callbackScope: this,
-        loop: true,
-      });
-    }
+    this.timerEvent = this.time.addEvent({
+      delay: 1000,
+      callback: this.tick,
+      callbackScope: this,
+      loop: true,
+    });
   }
 
   throwKnife() {
@@ -301,24 +344,24 @@ class GameScene extends Phaser.Scene {
               -this.gift.impactAngle
             )
           );
-          if (g < this.gameOptions.minAngle) {
+          if (g < this.gameOptions.minAngle && this.gift.visible) {
             ok = true;
-            this.gift.destroy();
+            // hộp quà huỷ
+            this.gift.visible = false;
+
+            // đếm lùi
             this.addTimer();
-            console.log(this.gift);
+            // console.log(this.gift);
             console.log("trung hộp quà");
+            // hiệu ứng nổ
             var explosion = this.add
               .sprite(this.knife1.x, this.knife1.y / 0.8, "kaboom")
               .play("boom");
             explosion.depth = 2;
             explosion.once("animationcomplete", () => {
-            explosion.destroy();
+              explosion.destroy();
             });
-            var sign1 = Phaser.Math.Between(2, 10);
-            this.value = 100 * sign1;
-            // var value = this.value;
-            // this.comp.api.user.balance += value * 10;
-            // this.comp.api.animate(1000);
+            this.value = 100 * this.sign1;
           }
           // is this a legal hit?
           if (this.legalHit && ok) {
@@ -404,13 +447,12 @@ class GameScene extends Phaser.Scene {
     this.gift.angle += this.currentRotationSpeed;
     var radians1 = Phaser.Math.DegToRad(this.gift.angle + 90);
     this.gift.x =
-      this.target.x + (this.target.displayWidth / 1.6) * Math.cos(radians1);
+      this.target.x + (this.target.displayWidth / 1.7) * Math.cos(radians1);
     this.gift.y =
-      this.target.y + (this.target.displayWidth / 1.6) * Math.sin(radians1);
+      this.target.y + (this.target.displayWidth / 1.7) * Math.sin(radians1);
   }
   update(time, delta) {
     // rotating the target
-
     this.target.angle += this.currentRotationSpeed;
     var things = this.thingsGroup.getChildren();
     for (var i = 0; i < things.length; i++) {
