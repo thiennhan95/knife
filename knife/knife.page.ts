@@ -130,6 +130,9 @@ class GameScene extends Phaser.Scene {
       (parent, key, value) => {
         if (key == "set_power") {
           this.valuer = value;
+          if(this.addTimer){
+            this.valuer.remove();
+          }
           console.log('213213')
         }
       },
@@ -219,7 +222,7 @@ class GameScene extends Phaser.Scene {
     // waiting for player input to throw a knife
     // this is how we create a looped timer event
     let timedEvent = this.time.addEvent({
-      delay: 8000,
+      delay: Phaser.Math.FloatBetween(8000,10000),
       callback: this.changeSpeed,
       callbackScope: this,
       loop: true,
@@ -361,6 +364,7 @@ class GameScene extends Phaser.Scene {
             this.gift.visible = false;
             // đếm lùi
             this.addTimer();
+            this.value = this.value * this.sign1;
             console.log("trung hộp quà");
             // hiệu ứng nổ
             var explosion = this.add
@@ -370,13 +374,12 @@ class GameScene extends Phaser.Scene {
             explosion.once("animationcomplete", () => {
               explosion.destroy();
             });
-            this.value = this.valuer.ship * this.sign1;
           }
           // is this a legal hit?
           if (this.legalHit && ok) {
             this.canThrow = true;
             var point1 = this.value * this.valuer.ship;
-            console.log(this.valuer)
+            console.log(point1);
             this.comp.api.user.balance += point1;
             this.comp.api.animate(point1);
             var knife1 = this.add.sprite(width / 2, height * 0.7, "knife1");
@@ -409,7 +412,7 @@ class GameScene extends Phaser.Scene {
               // y destination
               y: this.comp.api.screen_size.h * 1.2 + this.knife1.height,
               // rotation destination, in radians
-              rotation: 5,
+              rotation: 4,
               // tween duration
               duration: this.gameOptions.throwSpeed * 4,
               // callback scope
